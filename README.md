@@ -8,7 +8,7 @@ This project is a small React + Firebase prototype for managing clients and lead
   - **Client Management** – view, create and edit clients. Creating a client calls a Firebase Cloud Function that provisions BigQuery resources.
   - **Campaign Management** – list campaigns and associated call numbers.
   - **Lead Management** – search by phone number and filter by client or campaign.
-- Firebase Cloud Functions `createClient` and `createCampaign` provision BigQuery datasets and tables. The dashboard calls these functions when onboarding a new client.
+  - Firebase Cloud Functions `createClient`, `createCampaign` and `getGlobalKpis` manage and return live data from BigQuery.
 
 ## Development
 1. Install dependencies:
@@ -25,15 +25,15 @@ This project is a small React + Firebase prototype for managing clients and lead
    npm test -- --watchAll=false --passWithNoTests
    ```
 
-This repo is intended as a starting point and uses Tailwind CSS for styling. The backend functions are left as TODOs for further expansion.
+This repo is intended as a starting point and uses Tailwind CSS for styling. The dashboard now loads all data directly from BigQuery via Cloud Functions and no longer relies on mock objects.
 The Cloud Functions expect credentials with access to BigQuery. Deploy using a service account that has permission to create datasets and tables.
 
 ### Using BigQuery for live data
 
 1. Create a Google Cloud service account with permissions to manage BigQuery datasets and tables.
 2. Download its JSON key file and set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of this file when running the Firebase functions locally or deploying.
-3. The `getMasterData` Cloud Function will automatically create the `master_data` dataset and the `clients`, `call_numbers`, and `campaigns` tables if they do not exist.
-4. When the React app loads it calls this function to pull the latest data from BigQuery.
+3. The `getMasterData` Cloud Function will automatically create the `master_data` dataset and the `clients`, `call_numbers`, `campaigns` and `leads` tables if they do not exist.
+4. When the React app loads it calls this function along with `getGlobalKpis` to pull the latest data from BigQuery.
 
 ## Updating your local copy
 
