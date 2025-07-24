@@ -34,6 +34,12 @@ const ClipboardIcon = () => (
     </svg>
 );
 
+const HashtagIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 9h10M5 15h10m2-10l-2 12m-6-12l-2 12" />
+    </svg>
+);
+
 
 // --- Mock Data (to be replaced with API calls) ---
 const mockGlobalKpis = {
@@ -44,9 +50,9 @@ const mockGlobalKpis = {
 };
 
 const mockClientListData = [
-    { id: 1, companyName: 'The Modern Agent', contactFullName: 'Stephanie Molenaar', contactEmail: 'steph@tma.com', contactPhone: '555-111-2222', subscriptionPlan: 'enterprise', initialCampaign: 'Q3 Investor Outreach', status: 'Active', leads: 482 },
-    { id: 2, companyName: 'Mortgage Broker Inc.', contactFullName: 'Josh Fairhurst', contactEmail: 'josh@mortgage.com', contactPhone: '555-333-4444', subscriptionPlan: 'pro', initialCampaign: 'New Homebuyer Leads', status: 'Active', leads: 312 },
-    { id: 3, companyName: 'Real Estate Group', contactFullName: 'Braden Smith', contactEmail: 'braden@regroup.com', contactPhone: '555-555-6666', subscriptionPlan: 'pro', initialCampaign: 'July Listings', status: 'Needs Review', leads: 199 }
+    { id: 1, companyName: 'The Modern Agent', contactFullName: 'Stephanie Molenaar', contactEmail: 'steph@tma.com', contactPhone: '555-111-2222', initialCampaign: 'Q3 Investor Outreach', status: 'Active', leads: 482 },
+    { id: 2, companyName: 'Mortgage Broker Inc.', contactFullName: 'Josh Fairhurst', contactEmail: 'josh@mortgage.com', contactPhone: '555-333-4444', initialCampaign: 'New Homebuyer Leads', status: 'Active', leads: 312 },
+    { id: 3, companyName: 'Real Estate Group', contactFullName: 'Braden Smith', contactEmail: 'braden@regroup.com', contactPhone: '555-555-6666', initialCampaign: 'July Listings', status: 'Needs Review', leads: 199 }
 ];
 
 const mockLeadData = [
@@ -77,6 +83,14 @@ const mockCampaignData = [
     { id: 1, name: 'Q3 Investor Outreach', clientId: 1, clientName: 'The Modern Agent', callNumber: '555-888-1111', status: 'Active' },
     { id: 2, name: 'New Homebuyer Leads', clientId: 2, clientName: 'Mortgage Broker Inc.', callNumber: '555-888-2222', status: 'Active' },
     { id: 3, name: 'July Listings', clientId: 3, clientName: 'Real Estate Group', callNumber: '555-888-3333', status: 'Paused' },
+];
+
+// Call tracking numbers that can be assigned to clients
+const mockCallNumberData = [
+    { id: 1, number: '555-888-1111', clientId: 1 },
+    { id: 2, number: '555-888-2222', clientId: 2 },
+    { id: 3, number: '555-888-3333', clientId: 3 },
+    { id: 4, number: '555-888-4444', clientId: null },
 ];
 
 // --- Reusable Components ---
@@ -127,6 +141,19 @@ const MasterDashboard = ({ user }) => {
     const [activeView, setActiveView] = useState('clients');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState(null);
+    const [callNumbers, setCallNumbers] = useState(mockCallNumberData);
+
+    const addNumber = (number, clientId) => {
+        setCallNumbers(prev => [...prev, { id: Date.now(), number, clientId }]);
+    };
+
+    const updateNumber = (updated) => {
+        setCallNumbers(prev => prev.map(n => (n.id === updated.id ? updated : n)));
+    };
+
+    const deleteNumber = (id) => {
+        setCallNumbers(prev => prev.filter(n => n.id !== id));
+    };
 
     const handleLogout = () => {
         signOut(auth);
@@ -148,6 +175,8 @@ const MasterDashboard = ({ user }) => {
                 return <OverviewTab />;
             case 'clients':
                 return <ClientManagementTab onOpenCreateModal={handleOpenCreateModal} onOpenEditModal={handleOpenEditModal} />;
+            case 'numbers':
+                return <CallNumberManagementTab clients={mockClientListData} numbers={callNumbers} onAdd={addNumber} onEdit={updateNumber} onDelete={deleteNumber} />;
             case 'leads':
                 return <LeadManagementTab />;
             case 'campaigns':
@@ -168,6 +197,7 @@ const MasterDashboard = ({ user }) => {
                     <NavLink icon={<ChartBarIcon />} text="Global Overview" isActive={activeView === 'overview'} onClick={() => setActiveView('overview')} />
                     <NavLink icon={<UsersIcon />} text="Client Management" isActive={activeView === 'clients'} onClick={() => setActiveView('clients')} />
                     <NavLink icon={<ClipboardIcon />} text="Campaign Management" isActive={activeView === 'campaigns'} onClick={() => setActiveView('campaigns')} />
+                    <NavLink icon={<HashtagIcon />} text="Call Numbers" isActive={activeView === 'numbers'} onClick={() => setActiveView('numbers')} />
                     <NavLink icon={<PhoneIcon />} text="Lead Management" isActive={activeView === 'leads'} onClick={() => setActiveView('leads')} />
                 </nav>
                 <div className="flex-grow"></div>
@@ -309,6 +339,54 @@ const CampaignManagementTab = () => {
     );
 };
 
+const CallNumberManagementTab = ({ clients, numbers, onAdd, onEdit, onDelete }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingNumber, setEditingNumber] = useState(null);
+
+    const handleSave = (num) => {
+        if (editingNumber) {
+            onEdit(num);
+        } else {
+            onAdd(num.number, num.clientId);
+        }
+        setIsModalOpen(false);
+        setEditingNumber(null);
+    };
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-3xl font-bold text-white">Call Numbers</h2>
+                <button onClick={() => { setEditingNumber(null); setIsModalOpen(true); }} className="bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors shadow-lg">Add Number</button>
+            </div>
+            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                <table className="w-full text-left">
+                    <thead className="bg-gray-900">
+                        <tr>
+                            <th className="p-4 text-xs font-semibold uppercase text-gray-400">Number</th>
+                            <th className="p-4 text-xs font-semibold uppercase text-gray-400">Assigned Client</th>
+                            <th className="p-4 text-xs font-semibold uppercase text-gray-400">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                        {numbers.map(num => (
+                            <tr key={num.id} className="hover:bg-gray-700/50">
+                                <td className="p-4 font-medium text-white">{num.number}</td>
+                                <td className="p-4 text-white">{num.clientId ? clients.find(c => c.id === num.clientId)?.companyName : 'Unassigned'}</td>
+                                <td className="p-4 space-x-3">
+                                    <button onClick={() => { setEditingNumber(num); setIsModalOpen(true); }} className="text-indigo-400 hover:underline">Edit</button>
+                                    <button onClick={() => onDelete(num.id)} className="text-red-400 hover:underline">Delete</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <CallNumberModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingNumber(null); }} numberData={editingNumber} clients={clients} onSave={handleSave} />
+        </div>
+    );
+};
+
 const LeadManagementTab = () => {
     const [search, setSearch] = useState('');
     const [clientFilter, setClientFilter] = useState('');
@@ -403,7 +481,6 @@ const ClientModal = ({ isOpen, onClose, clientData }) => {
                 contactFullName: '',
                 contactEmail: '',
                 contactPhone: '',
-                subscriptionPlan: 'pro',
                 initialCampaign: '',
                 callNumber: ''
             });
@@ -429,7 +506,6 @@ const ClientModal = ({ isOpen, onClose, clientData }) => {
                 companyName: formData.companyName,
                 contactFullName: formData.contactFullName,
                 contactEmail: formData.contactEmail,
-                subscriptionPlan: formData.subscriptionPlan,
             });
             alert(result.data.message);
 
@@ -476,13 +552,6 @@ const ClientModal = ({ isOpen, onClose, clientData }) => {
                         <input name="contactEmail" type="email" required value={formData.contactEmail} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-sm font-medium text-gray-300">Subscription Plan</label>
-                            <select name="subscriptionPlan" required value={formData.subscriptionPlan} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                <option value="pro">Pro Plan</option>
-                                <option value="enterprise">Enterprise Plan</option>
-                            </select>
-                        </div>
                         <div>
                             <label className="text-sm font-medium text-gray-300">Initial Campaign Name</label>
                             <input name="initialCampaign" type="text" required value={formData.initialCampaign} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -539,6 +608,54 @@ const LeadModal = ({ lead, onClose, onSave }) => {
                             <option value="Hot">Hot</option>
                             <option value="Warm">Warm</option>
                             <option value="Cold">Cold</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="mt-8 flex justify-end space-x-4">
+                    <button type="button" onClick={onClose} className="py-2 px-4 rounded-lg text-gray-300 hover:bg-gray-700">Cancel</button>
+                    <button type="submit" className="bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700">Save</button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+const CallNumberModal = ({ isOpen, onClose, numberData, clients, onSave }) => {
+    const [form, setForm] = useState({ number: '', clientId: '' });
+
+    useEffect(() => {
+        if (numberData) {
+            setForm({ number: numberData.number, clientId: numberData.clientId || '' });
+        } else {
+            setForm({ number: '', clientId: '' });
+        }
+    }, [numberData, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const clientId = form.clientId ? parseInt(form.clientId, 10) : null;
+        const payload = { id: numberData?.id || Date.now(), number: form.number, clientId };
+        onSave(payload);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+            <form onSubmit={handleSubmit} className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm p-8 border border-gray-700">
+                <h2 className="text-2xl font-bold text-white mb-6">{numberData ? 'Edit Number' : 'Add Number'}</h2>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-sm font-medium text-gray-300">Number</label>
+                        <input name="number" type="text" required value={form.number} onChange={e => setForm({ ...form, number: e.target.value })} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-300">Assign to Client</label>
+                        <select value={form.clientId} onChange={e => setForm({ ...form, clientId: e.target.value })} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Unassigned</option>
+                            {clients.map(c => (
+                                <option key={c.id} value={c.id}>{c.companyName}</option>
+                            ))}
                         </select>
                     </div>
                 </div>
