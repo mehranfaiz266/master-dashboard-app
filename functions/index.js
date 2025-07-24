@@ -28,7 +28,6 @@ exports.createClient = functions.https.onCall(async (data, context) => {
     companyName,
     contactFullName,
     contactEmail,
-    subscriptionPlan,
   } = data;
 
   // 1. Create a user for the client's primary contact
@@ -56,7 +55,6 @@ exports.createClient = functions.https.onCall(async (data, context) => {
     companyName,
     contactEmail,
     contactFullName,
-    subscriptionPlan,
     createdAt: new Date().toISOString(),
   });
 
