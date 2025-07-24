@@ -28,6 +28,13 @@ This project is a small React + Firebase prototype for managing clients and lead
 This repo is intended as a starting point and uses Tailwind CSS for styling. The backend functions are left as TODOs for further expansion.
 The Cloud Functions expect credentials with access to BigQuery. Deploy using a service account that has permission to create datasets and tables.
 
+### Using BigQuery for live data
+
+1. Create a Google Cloud service account with permissions to manage BigQuery datasets and tables.
+2. Download its JSON key file and set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of this file when running the Firebase functions locally or deploying.
+3. The `getMasterData` Cloud Function will automatically create the `master_data` dataset and the `clients`, `call_numbers`, and `campaigns` tables if they do not exist.
+4. When the React app loads it calls this function to pull the latest data from BigQuery.
+
 ## Updating your local copy
 
 If you already cloned the project in VS Code, fetch the latest code and start the dev server:

@@ -3,6 +3,8 @@ import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import Login from './components/Login';
 import ClientFormPage from './components/ClientFormPage';
+import { httpsCallable } from "firebase/functions";
+import { functions } from "./firebase";
 
 
 // --- ICONS (as simple SVG components for self-containment) ---
@@ -176,9 +178,26 @@ export default function App() {
 const MasterDashboard = ({ user }) => {
     const [activeView, setActiveView] = useState('clients');
     const [editingClient, setEditingClient] = useState(null);
-    const [clients, setClients] = useState(mockClientListData);
-    const [callNumbers, setCallNumbers] = useState(mockCallNumberData);
-    const [campaigns, setCampaigns] = useState(mockCampaignData);
+    const [clients, setClients] = useState([]);
+    const [callNumbers, setCallNumbers] = useState([]);
+    const [campaigns, setCampaigns] = useState([]);
+    const [dataLoading, setDataLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                const getData = httpsCallable(functions, 'getMasterData');
+                const res = await getData();
+                setClients(res.data.clients || []);
+                setCallNumbers(res.data.callNumbers || []);
+                setCampaigns(res.data.campaigns || []);
+            } catch (err) {
+                console.error('Failed to load data from BigQuery', err);
+            }
+            setDataLoading(false);
+        }
+        fetchData();
+    }, []);
 
     const addNumber = (number, clientId) => {
         setCallNumbers(prev => [...prev, { id: Date.now(), number, clientId }]);
@@ -248,13 +267,17 @@ const MasterDashboard = ({ user }) => {
             case 'numbers':
                 return <CallNumberManagementTab clients={clients} numbers={callNumbers} onAdd={addNumber} onEdit={updateNumber} onDelete={deleteNumber} />;
             case 'leads':
-                return <LeadManagementTab />;
+                return <LeadManagementTab clients={clients} campaigns={campaigns} />;
             case 'campaigns':
                 return <CampaignManagementTab campaigns={campaigns} />;
             default:
                 return <ClientManagementTab clients={clients} onOpenCreateModal={handleOpenCreateForm} onOpenEditModal={handleOpenEditForm} />;
         }
     };
+
+    if (dataLoading) {
+        return <div className="p-8 text-white">Loading data...</div>;
+    }
 
     return (
         <div className="flex h-screen bg-gray-900 text-gray-200 font-sans">
@@ -425,7 +448,7 @@ const CallNumberManagementTab = ({ clients, numbers, onAdd, onEdit, onDelete }) 
     );
 };
 
-const LeadManagementTab = () => {
+const LeadManagementTab = ({ clients, campaigns }) => {
     const [search, setSearch] = useState('');
     const [clientFilter, setClientFilter] = useState('');
     const [campaignFilter, setCampaignFilter] = useState('');

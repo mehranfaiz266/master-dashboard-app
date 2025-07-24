@@ -91,3 +91,57 @@ exports.createCampaign = functions.https.onCall(async (data, context) => {
     campaignId,
   };
 });
+
+/**
+ * Fetch dashboard data from BigQuery. If the dataset or tables do not exist
+ * they will be created on the fly. The function returns all clients, call
+ * numbers and campaigns.
+ */
+exports.getMasterData = functions.https.onCall(async () => {
+  // Ensure the shared dataset exists
+  const datasetId = "master_data";
+  let dataset = bigquery.dataset(datasetId);
+  const [datasetExists] = await dataset.exists();
+  if (!datasetExists) {
+    await bigquery.createDataset(datasetId, { location: "US" });
+    dataset = bigquery.dataset(datasetId);
+  }
+
+  // Helper to ensure a table exists with a given schema
+  async function ensureTable(tableId, schema) {
+    const table = dataset.table(tableId);
+    const [exists] = await table.exists();
+    if (!exists) {
+      await table.create({ schema });
+    }
+    return table;
+  }
+
+  const clientsTable = await ensureTable("clients", [
+    { name: "clientId", type: "STRING" },
+    { name: "companyName", type: "STRING" },
+    { name: "contactEmail", type: "STRING" },
+    { name: "contactFullName", type: "STRING" },
+    { name: "createdAt", type: "TIMESTAMP" },
+  ]);
+
+  const numbersTable = await ensureTable("call_numbers", [
+    { name: "id", type: "INT64" },
+    { name: "number", type: "STRING" },
+    { name: "clientId", type: "INT64" },
+  ]);
+
+  const campaignsTable = await ensureTable("campaigns", [
+    { name: "id", type: "INT64" },
+    { name: "name", type: "STRING" },
+    { name: "clientId", type: "INT64" },
+    { name: "callNumber", type: "STRING" },
+  ]);
+
+  // Fetch the rows from each table
+  const [clients] = await clientsTable.getRows();
+  const [callNumbers] = await numbersTable.getRows();
+  const [campaigns] = await campaignsTable.getRows();
+
+  return { clients, callNumbers, campaigns };
+});
