@@ -43,93 +43,7 @@ const HashtagIcon = () => (
 );
 
 
-// --- Mock Data (to be replaced with API calls) ---
-const mockGlobalKpis = {
-    totalCalls: 87430,
-    totalLeads: 1982,
-    activeClients: 3,
-    systemHealth: 'Normal'
-};
-
-const mockClientListData = [
-    {
-        id: 1,
-        companyName: 'The Modern Agent',
-        contactFullName: 'Stephanie Molenaar',
-        contactEmail: 'steph@tma.com',
-        contactPhone: '555-111-2222',
-        initialCampaign: 'Q3 Investor Outreach',
-        status: 'Active',
-        leads: 482,
-        numbers: [1],
-        campaigns: [1],
-        members: []
-    },
-    {
-        id: 2,
-        companyName: 'Mortgage Broker Inc.',
-        contactFullName: 'Josh Fairhurst',
-        contactEmail: 'josh@mortgage.com',
-        contactPhone: '555-333-4444',
-        initialCampaign: 'New Homebuyer Leads',
-        status: 'Active',
-        leads: 312,
-        numbers: [2],
-        campaigns: [2],
-        members: []
-    },
-    {
-        id: 3,
-        companyName: 'Real Estate Group',
-        contactFullName: 'Braden Smith',
-        contactEmail: 'braden@regroup.com',
-        contactPhone: '555-555-6666',
-        initialCampaign: 'July Listings',
-        status: 'Needs Review',
-        leads: 199,
-        numbers: [3],
-        campaigns: [3],
-        members: []
-    }
-];
-
-const mockLeadData = [
-    {
-        id: 1,
-        phoneNumber: '555-123-4567',
-        clientName: 'The Modern Agent',
-        campaign: 'Q3 Investor Outreach',
-        disposition: 'Hot'
-    },
-    {
-        id: 2,
-        phoneNumber: '555-987-6543',
-        clientName: 'Mortgage Broker Inc.',
-        campaign: 'New Homebuyer Leads',
-        disposition: 'Warm'
-    },
-    {
-        id: 3,
-        phoneNumber: '555-222-3333',
-        clientName: 'Real Estate Group',
-        campaign: 'July Listings',
-        disposition: 'Cold'
-    }
-];
-
-const mockCampaignData = [
-    { id: 1, name: 'Q3 Investor Outreach', clientId: 1, clientName: 'The Modern Agent', callNumber: '555-888-1111', status: 'Active' },
-    { id: 2, name: 'New Homebuyer Leads', clientId: 2, clientName: 'Mortgage Broker Inc.', callNumber: '555-888-2222', status: 'Active' },
-    { id: 3, name: 'July Listings', clientId: 3, clientName: 'Real Estate Group', callNumber: '555-888-3333', status: 'Paused' },
-];
-
-// Call tracking numbers that can be assigned to clients
-const mockCallNumberData = [
-    { id: 1, number: '555-888-1111', clientId: 1 },
-    { id: 2, number: '555-888-2222', clientId: 2 },
-    { id: 3, number: '555-888-3333', clientId: 3 },
-    { id: 4, number: '555-888-4444', clientId: null },
-];
+// No mock data: all values are fetched from BigQuery
 
 // --- Reusable Components ---
 const KpiCard = ({ title, value, statusColor }) => (
@@ -181,6 +95,7 @@ const MasterDashboard = ({ user }) => {
     const [clients, setClients] = useState([]);
     const [callNumbers, setCallNumbers] = useState([]);
     const [campaigns, setCampaigns] = useState([]);
+    const [globalKpis, setGlobalKpis] = useState(null);
     const [dataLoading, setDataLoading] = useState(true);
 
     useEffect(() => {
@@ -191,6 +106,10 @@ const MasterDashboard = ({ user }) => {
                 setClients(res.data.clients || []);
                 setCallNumbers(res.data.callNumbers || []);
                 setCampaigns(res.data.campaigns || []);
+
+                const getKpis = httpsCallable(functions, 'getGlobalKpis');
+                const kpiRes = await getKpis();
+                setGlobalKpis(kpiRes.data);
             } catch (err) {
                 console.error('Failed to load data from BigQuery', err);
             }
@@ -225,33 +144,23 @@ const MasterDashboard = ({ user }) => {
         setActiveView('clientForm');
     };
 
-    const handleSaveClient = (data) => {
-        // Update number assignments
-        setCallNumbers(prev => prev.map(n => {
-            if (data.numbers.includes(n.id)) {
-                return { ...n, clientId: data.id };
+    const handleSaveClient = async (data) => {
+        if (!editingClient) {
+            try {
+                const createFn = httpsCallable(functions, 'createClient');
+                await createFn({
+                    companyName: data.companyName,
+                    contactFullName: data.clientName,
+                    contactEmail: data.contactEmail,
+                });
+                const getData = httpsCallable(functions, 'getMasterData');
+                const res = await getData();
+                setClients(res.data.clients || []);
+                setCallNumbers(res.data.callNumbers || []);
+                setCampaigns(res.data.campaigns || []);
+            } catch (err) {
+                console.error('Failed to create client', err);
             }
-            if (n.clientId === data.id && !data.numbers.includes(n.id)) {
-                return { ...n, clientId: null };
-            }
-            return n;
-        }));
-
-        // Update campaign assignments
-        setCampaigns(prev => prev.map(c => {
-            if (data.campaigns.includes(c.id)) {
-                return { ...c, clientId: data.id, clientName: data.companyName };
-            }
-            if (c.clientId === data.id && !data.campaigns.includes(c.id)) {
-                return { ...c, clientId: null, clientName: null };
-            }
-            return c;
-        }));
-
-        if (editingClient) {
-            setClients(prev => prev.map(c => (c.id === data.id ? data : c)));
-        } else {
-            setClients(prev => [...prev, data]);
         }
         setActiveView('clients');
     };
@@ -259,7 +168,7 @@ const MasterDashboard = ({ user }) => {
     const renderView = () => {
         switch (activeView) {
             case 'overview':
-                return <OverviewTab />;
+                return <OverviewTab kpis={globalKpis} />;
             case 'clientForm':
                 return <ClientFormPage client={editingClient} numbers={callNumbers} campaigns={campaigns} onSave={handleSaveClient} onCancel={() => setActiveView('clients')} />;
             case 'clients':
@@ -309,14 +218,14 @@ const MasterDashboard = ({ user }) => {
 };
 
 // --- View Components ---
-const OverviewTab = () => (
+const OverviewTab = ({ kpis }) => (
     <div>
         <h2 className="text-3xl font-bold text-white mb-6">Global Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <KpiCard title="Total Calls (30d)" value={mockGlobalKpis.totalCalls.toLocaleString()} />
-            <KpiCard title="Total Leads (30d)" value={mockGlobalKpis.totalLeads.toLocaleString()} />
-            <KpiCard title="Active Clients" value={mockGlobalKpis.activeClients} />
-            <KpiCard title="System Health" value={mockGlobalKpis.systemHealth} statusColor="text-green-400" />
+            <KpiCard title="Total Calls (30d)" value={kpis?.totalCalls?.toLocaleString() || '0'} />
+            <KpiCard title="Total Leads (30d)" value={kpis?.totalLeads?.toLocaleString() || '0'} />
+            <KpiCard title="Active Clients" value={kpis?.activeClients || 0} />
+            <KpiCard title="System Health" value={kpis?.systemHealth || 'Unknown'} statusColor="text-green-400" />
         </div>
         <div className="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
             <h3 className="text-lg font-medium text-white">More charts and global analytics would go here.</h3>
@@ -456,11 +365,25 @@ const LeadManagementTab = ({ clients, campaigns }) => {
     const [editingLead, setEditingLead] = useState(null);
 
     useEffect(() => {
-        // Simulate API call
-        setLeads(mockLeadData);
+        async function fetchLeads() {
+            try {
+                const getData = httpsCallable(functions, 'getMasterData');
+                const res = await getData();
+                setLeads(res.data.leads || []);
+            } catch (err) {
+                console.error('Failed to load leads', err);
+            }
+        }
+        fetchLeads();
     }, []);
 
-    const filteredLeads = leads.filter(lead => {
+    const enrichedLeads = leads.map(l => ({
+        ...l,
+        clientName: clients.find(c => c.clientId === String(l.clientId))?.companyName || '',
+        campaign: campaigns.find(c => c.id === l.campaignId)?.name || '',
+    }));
+
+    const filteredLeads = enrichedLeads.filter(lead => {
         const matchesSearch = lead.phoneNumber.toLowerCase().includes(search.toLowerCase());
         const matchesClient = clientFilter ? lead.clientName === clientFilter : true;
         const matchesCampaign = campaignFilter ? lead.campaign === campaignFilter : true;

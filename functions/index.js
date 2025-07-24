@@ -6,6 +6,16 @@ const { BigQuery } = require("@google-cloud/bigquery");
 admin.initializeApp();
 const bigquery = new BigQuery();
 
+async function ensureClientTable(datasetId, tableId, schema) {
+  const dataset = bigquery.dataset(datasetId);
+  const table = dataset.table(tableId);
+  const [exists] = await table.exists();
+  if (!exists) {
+    await table.create({ schema });
+  }
+  return table;
+}
+
 /**
  * Creates a new client account and provisions their resources.
  * This is an HTTP callable function, which means our React app can call it directly.
@@ -41,11 +51,32 @@ exports.createClient = functions.https.onCall(async (data, context) => {
   try {
     await bigquery.createDataset(datasetId, { location: "US" });
   } catch (err) {
-    // Ignore "Already Exists" errors so function is idempotent
-    if (!err.message.includes('Already Exists')) {
+    if (!err.message.includes("Already Exists")) {
       throw err;
     }
   }
+
+  // ensure default tables inside the client dataset
+  await ensureClientTable(datasetId, "campaigns", [
+    { name: "campaignId", type: "STRING" },
+    { name: "name", type: "STRING" },
+    { name: "callNumber", type: "STRING" },
+    { name: "createdAt", type: "TIMESTAMP" },
+  ]);
+  await ensureClientTable(datasetId, "members", [
+    { name: "memberId", type: "STRING" },
+    { name: "firstName", type: "STRING" },
+    { name: "lastName", type: "STRING" },
+    { name: "phone", type: "STRING" },
+    { name: "email", type: "STRING" },
+  ]);
+  await ensureClientTable(datasetId, "leads", [
+    { name: "leadId", type: "STRING" },
+    { name: "phoneNumber", type: "STRING" },
+    { name: "campaignId", type: "STRING" },
+    { name: "disposition", type: "STRING" },
+    { name: "createdAt", type: "TIMESTAMP" },
+  ]);
 
   // 3. Record the new client in the shared master_data dataset
   const masterDataset = bigquery.dataset("master_data");
@@ -75,7 +106,12 @@ exports.createCampaign = functions.https.onCall(async (data, context) => {
 
   // Campaign records live inside the client's dataset under a `campaigns` table
   const datasetId = `client_${clientId}`;
-  const campaignsTable = bigquery.dataset(datasetId).table("campaigns");
+  const campaignsTable = await ensureClientTable(datasetId, "campaigns", [
+    { name: "campaignId", type: "STRING" },
+    { name: "name", type: "STRING" },
+    { name: "callNumber", type: "STRING" },
+    { name: "createdAt", type: "TIMESTAMP" },
+  ]);
   const campaignId = `campaign_${Date.now()}`;
 
   await campaignsTable.insert({
@@ -138,10 +174,36 @@ exports.getMasterData = functions.https.onCall(async () => {
     { name: "callNumber", type: "STRING" },
   ]);
 
+  const leadsTable = await ensureTable("leads", [
+    { name: "id", type: "INT64" },
+    { name: "phoneNumber", type: "STRING" },
+    { name: "clientId", type: "INT64" },
+    { name: "campaignId", type: "STRING" },
+    { name: "disposition", type: "STRING" },
+    { name: "createdAt", type: "TIMESTAMP" },
+  ]);
+
   // Fetch the rows from each table
   const [clients] = await clientsTable.getRows();
   const [callNumbers] = await numbersTable.getRows();
   const [campaigns] = await campaignsTable.getRows();
+  const [leads] = await leadsTable.getRows();
 
-  return { clients, callNumbers, campaigns };
+  return { clients, callNumbers, campaigns, leads };
+});
+
+exports.getGlobalKpis = functions.https.onCall(async () => {
+  const masterDataset = bigquery.dataset("master_data");
+  const clientsTable = masterDataset.table("clients");
+  const leadsTable = masterDataset.table("leads");
+
+  const [clients] = await clientsTable.getRows();
+  const [leads] = await leadsTable.getRows();
+
+  return {
+    totalCalls: leads.length,
+    totalLeads: leads.length,
+    activeClients: clients.length,
+    systemHealth: "Normal",
+  };
 });
