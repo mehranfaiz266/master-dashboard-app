@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { auth, functions } from './firebase';
+import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { httpsCallable } from 'firebase/functions';
 import Login from './components/Login';
+import ClientFormPage from './components/ClientFormPage';
 
 
 // --- ICONS (as simple SVG components for self-containment) ---
@@ -139,8 +139,8 @@ export default function App() {
 // --- Master Dashboard Component ---
 const MasterDashboard = ({ user }) => {
     const [activeView, setActiveView] = useState('clients');
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState(null);
+    const [clients, setClients] = useState(mockClientListData);
     const [callNumbers, setCallNumbers] = useState(mockCallNumberData);
 
     const addNumber = (number, clientId) => {
@@ -159,30 +159,41 @@ const MasterDashboard = ({ user }) => {
         signOut(auth);
     };
     
-    const handleOpenCreateModal = () => {
+    const handleOpenCreateForm = () => {
         setEditingClient(null);
-        setIsModalOpen(true);
+        setActiveView('clientForm');
     };
 
-    const handleOpenEditModal = (client) => {
+    const handleOpenEditForm = (client) => {
         setEditingClient(client);
-        setIsModalOpen(true);
+        setActiveView('clientForm');
+    };
+
+    const handleSaveClient = (data) => {
+        if (editingClient) {
+            setClients(prev => prev.map(c => (c.id === data.id ? data : c)));
+        } else {
+            setClients(prev => [...prev, data]);
+        }
+        setActiveView('clients');
     };
 
     const renderView = () => {
         switch (activeView) {
             case 'overview':
                 return <OverviewTab />;
+            case 'clientForm':
+                return <ClientFormPage client={editingClient} onSave={handleSaveClient} onCancel={() => setActiveView('clients')} />;
             case 'clients':
-                return <ClientManagementTab onOpenCreateModal={handleOpenCreateModal} onOpenEditModal={handleOpenEditModal} />;
+                return <ClientManagementTab clients={clients} onOpenCreateModal={handleOpenCreateForm} onOpenEditModal={handleOpenEditForm} />;
             case 'numbers':
-                return <CallNumberManagementTab clients={mockClientListData} numbers={callNumbers} onAdd={addNumber} onEdit={updateNumber} onDelete={deleteNumber} />;
+                return <CallNumberManagementTab clients={clients} numbers={callNumbers} onAdd={addNumber} onEdit={updateNumber} onDelete={deleteNumber} />;
             case 'leads':
                 return <LeadManagementTab />;
             case 'campaigns':
                 return <CampaignManagementTab />;
             default:
-                return <ClientManagementTab onOpenCreateModal={handleOpenCreateModal} onOpenEditModal={handleOpenEditModal} />;
+                return <ClientManagementTab clients={clients} onOpenCreateModal={handleOpenCreateForm} onOpenEditModal={handleOpenEditForm} />;
         }
     };
 
@@ -211,7 +222,6 @@ const MasterDashboard = ({ user }) => {
                 {renderView()}
             </main>
 
-            <ClientModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} clientData={editingClient} />
         </div>
     );
 };
@@ -232,18 +242,7 @@ const OverviewTab = () => (
     </div>
 );
 
-const ClientManagementTab = ({ onOpenCreateModal, onOpenEditModal }) => {
-    const [clients, setClients] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Simulate fetching data from an API
-        setLoading(true);
-        setTimeout(() => {
-            setClients(mockClientListData);
-            setLoading(false);
-        }, 1000); // 1 second delay to simulate network
-    }, []);
+const ClientManagementTab = ({ clients, onOpenCreateModal, onOpenEditModal }) => {
 
     return (
         <div>
@@ -254,10 +253,7 @@ const ClientManagementTab = ({ onOpenCreateModal, onOpenEditModal }) => {
                 </button>
             </div>
             <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                {loading ? (
-                    <div className="p-8 text-center text-gray-400">Loading client data...</div>
-                ) : (
-                    <table className="w-full text-left">
+                <table className="w-full text-left">
                         <thead className="bg-gray-900">
                             <tr>
                                 <th className="p-4 text-xs font-semibold uppercase text-gray-400">Client Name</th>
@@ -287,8 +283,7 @@ const ClientManagementTab = ({ onOpenCreateModal, onOpenEditModal }) => {
                             ))}
                         </tbody>
                     </table>
-                )}
-            </div>
+                </div>
         </div>
     );
 };
@@ -468,110 +463,6 @@ const LeadManagementTab = () => {
     );
 };
 
-// --- Modal Component ---
-const ClientModal = ({ isOpen, onClose, clientData }) => {
-    const [formData, setFormData] = useState({});
-
-    useEffect(() => {
-        if (clientData) {
-            setFormData(clientData);
-        } else {
-            setFormData({
-                companyName: '',
-                contactFullName: '',
-                contactEmail: '',
-                contactPhone: '',
-                initialCampaign: '',
-                callNumber: ''
-            });
-        }
-    }, [clientData, isOpen]);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (clientData) {
-            alert(`Simulating API call to UPDATE client...\n\nData Sent:\n${JSON.stringify(formData, null, 2)}`);
-            onClose();
-            return;
-        }
-
-        try {
-            const createClient = httpsCallable(functions, 'createClient');
-            const result = await createClient({
-                companyName: formData.companyName,
-                contactFullName: formData.contactFullName,
-                contactEmail: formData.contactEmail,
-            });
-            alert(result.data.message);
-
-            if (formData.initialCampaign) {
-                const createCampaign = httpsCallable(functions, 'createCampaign');
-                await createCampaign({
-                    clientId: result.data.clientId,
-                    name: formData.initialCampaign,
-                    callNumber: formData.callNumber,
-                });
-            }
-        } catch (err) {
-            console.error('Error creating client:', err);
-            alert('Failed to create client');
-        }
-        onClose();
-    };
-    
-    if (!isOpen) return null;
-
-    const isEditMode = !!clientData;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
-            <form onSubmit={handleSubmit} className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-8 border border-gray-700">
-                <h2 className="text-2xl font-bold text-white mb-6">{isEditMode ? 'Edit Client' : 'Onboard New Client'}</h2>
-                <div className="space-y-4">
-                    <div>
-                        <label className="text-sm font-medium text-gray-300">Company Name</label>
-                        <input name="companyName" type="text" required value={formData.companyName} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-sm font-medium text-gray-300">Primary Contact Full Name</label>
-                            <input name="contactFullName" type="text" required value={formData.contactFullName} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-300">Primary Contact Phone</label>
-                            <input name="contactPhone" type="tel" value={formData.contactPhone} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                        </div>
-                    </div>
-                     <div>
-                        <label className="text-sm font-medium text-gray-300">Primary Contact Email</label>
-                        <input name="contactEmail" type="email" required value={formData.contactEmail} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-sm font-medium text-gray-300">Initial Campaign Name</label>
-                            <input name="initialCampaign" type="text" required value={formData.initialCampaign} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-300">Call Tracking Number</label>
-                            <input name="callNumber" type="text" value={formData.callNumber} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                        </div>
-                    </div>
-                </div>
-                <div className="mt-8 flex justify-end space-x-4">
-                    <button type="button" onClick={onClose} className="py-2 px-4 rounded-lg text-gray-300 hover:bg-gray-700">Cancel</button>
-                    <button type="submit" className="bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700">
-                        {isEditMode ? 'Save Changes' : 'Create Client & Provision'}
-                    </button>
-                </div>
-            </form>
-        </div>
-    );
-};
 
 const LeadModal = ({ lead, onClose, onSave }) => {
     const [disposition, setDisposition] = useState('');
