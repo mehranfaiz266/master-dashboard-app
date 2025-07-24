@@ -50,9 +50,45 @@ const mockGlobalKpis = {
 };
 
 const mockClientListData = [
-    { id: 1, companyName: 'The Modern Agent', contactFullName: 'Stephanie Molenaar', contactEmail: 'steph@tma.com', contactPhone: '555-111-2222', initialCampaign: 'Q3 Investor Outreach', status: 'Active', leads: 482 },
-    { id: 2, companyName: 'Mortgage Broker Inc.', contactFullName: 'Josh Fairhurst', contactEmail: 'josh@mortgage.com', contactPhone: '555-333-4444', initialCampaign: 'New Homebuyer Leads', status: 'Active', leads: 312 },
-    { id: 3, companyName: 'Real Estate Group', contactFullName: 'Braden Smith', contactEmail: 'braden@regroup.com', contactPhone: '555-555-6666', initialCampaign: 'July Listings', status: 'Needs Review', leads: 199 }
+    {
+        id: 1,
+        companyName: 'The Modern Agent',
+        contactFullName: 'Stephanie Molenaar',
+        contactEmail: 'steph@tma.com',
+        contactPhone: '555-111-2222',
+        initialCampaign: 'Q3 Investor Outreach',
+        status: 'Active',
+        leads: 482,
+        numbers: [1],
+        campaigns: [1],
+        members: []
+    },
+    {
+        id: 2,
+        companyName: 'Mortgage Broker Inc.',
+        contactFullName: 'Josh Fairhurst',
+        contactEmail: 'josh@mortgage.com',
+        contactPhone: '555-333-4444',
+        initialCampaign: 'New Homebuyer Leads',
+        status: 'Active',
+        leads: 312,
+        numbers: [2],
+        campaigns: [2],
+        members: []
+    },
+    {
+        id: 3,
+        companyName: 'Real Estate Group',
+        contactFullName: 'Braden Smith',
+        contactEmail: 'braden@regroup.com',
+        contactPhone: '555-555-6666',
+        initialCampaign: 'July Listings',
+        status: 'Needs Review',
+        leads: 199,
+        numbers: [3],
+        campaigns: [3],
+        members: []
+    }
 ];
 
 const mockLeadData = [
@@ -142,6 +178,7 @@ const MasterDashboard = ({ user }) => {
     const [editingClient, setEditingClient] = useState(null);
     const [clients, setClients] = useState(mockClientListData);
     const [callNumbers, setCallNumbers] = useState(mockCallNumberData);
+    const [campaigns, setCampaigns] = useState(mockCampaignData);
 
     const addNumber = (number, clientId) => {
         setCallNumbers(prev => [...prev, { id: Date.now(), number, clientId }]);
@@ -170,6 +207,28 @@ const MasterDashboard = ({ user }) => {
     };
 
     const handleSaveClient = (data) => {
+        // Update number assignments
+        setCallNumbers(prev => prev.map(n => {
+            if (data.numbers.includes(n.id)) {
+                return { ...n, clientId: data.id };
+            }
+            if (n.clientId === data.id && !data.numbers.includes(n.id)) {
+                return { ...n, clientId: null };
+            }
+            return n;
+        }));
+
+        // Update campaign assignments
+        setCampaigns(prev => prev.map(c => {
+            if (data.campaigns.includes(c.id)) {
+                return { ...c, clientId: data.id, clientName: data.companyName };
+            }
+            if (c.clientId === data.id && !data.campaigns.includes(c.id)) {
+                return { ...c, clientId: null, clientName: null };
+            }
+            return c;
+        }));
+
         if (editingClient) {
             setClients(prev => prev.map(c => (c.id === data.id ? data : c)));
         } else {
@@ -183,7 +242,7 @@ const MasterDashboard = ({ user }) => {
             case 'overview':
                 return <OverviewTab />;
             case 'clientForm':
-                return <ClientFormPage client={editingClient} onSave={handleSaveClient} onCancel={() => setActiveView('clients')} />;
+                return <ClientFormPage client={editingClient} numbers={callNumbers} campaigns={campaigns} onSave={handleSaveClient} onCancel={() => setActiveView('clients')} />;
             case 'clients':
                 return <ClientManagementTab clients={clients} onOpenCreateModal={handleOpenCreateForm} onOpenEditModal={handleOpenEditForm} />;
             case 'numbers':
@@ -191,7 +250,7 @@ const MasterDashboard = ({ user }) => {
             case 'leads':
                 return <LeadManagementTab />;
             case 'campaigns':
-                return <CampaignManagementTab />;
+                return <CampaignManagementTab campaigns={campaigns} />;
             default:
                 return <ClientManagementTab clients={clients} onOpenCreateModal={handleOpenCreateForm} onOpenEditModal={handleOpenEditForm} />;
         }
@@ -288,27 +347,12 @@ const ClientManagementTab = ({ clients, onOpenCreateModal, onOpenEditModal }) =>
     );
 };
 
-const CampaignManagementTab = () => {
-    const [campaigns, setCampaigns] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Simulate API call
-        setLoading(true);
-        setTimeout(() => {
-            setCampaigns(mockCampaignData);
-            setLoading(false);
-        }, 500);
-    }, []);
-
+const CampaignManagementTab = ({ campaigns }) => {
     return (
         <div>
             <h2 className="text-3xl font-bold text-white mb-6">Campaign Management</h2>
             <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                {loading ? (
-                    <div className="p-8 text-center text-gray-400">Loading campaign data...</div>
-                ) : (
-                    <table className="w-full text-left">
+                <table className="w-full text-left">
                         <thead className="bg-gray-900">
                             <tr>
                                 <th className="p-4 text-xs font-semibold uppercase text-gray-400">Campaign</th>
@@ -321,14 +365,13 @@ const CampaignManagementTab = () => {
                             {campaigns.map(c => (
                                 <tr key={c.id} className="hover:bg-gray-700/50">
                                     <td className="p-4 font-medium text-white">{c.name}</td>
-                                    <td className="p-4 text-white">{c.clientName}</td>
+                                    <td className="p-4 text-white">{c.clientName || 'Unassigned'}</td>
                                     <td className="p-4 text-white">{c.callNumber}</td>
                                     <td className="p-4 text-white">{c.status}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                )}
             </div>
         </div>
     );
@@ -420,13 +463,13 @@ const LeadManagementTab = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <select value={clientFilter} onChange={e => setClientFilter(e.target.value)} className="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg">
                         <option value="">All Clients</option>
-                        {mockClientListData.map(c => (
+                        {clients.map(c => (
                             <option key={c.id} value={c.companyName}>{c.companyName}</option>
                         ))}
                     </select>
                     <select value={campaignFilter} onChange={e => setCampaignFilter(e.target.value)} className="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg">
                         <option value="">All Campaigns</option>
-                        {mockCampaignData.map(c => (
+                        {campaigns.map(c => (
                             <option key={c.id} value={c.name}>{c.name}</option>
                         ))}
                     </select>
