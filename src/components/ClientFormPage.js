@@ -34,8 +34,13 @@ export default function ClientFormPage({ client, numbers, campaigns, onSave, onC
     }
   }, [client, setValue, numbers, campaigns]);
 
-  const availableNumbers = numbers.filter(n => n.clientId === null || assignedNumbers.includes(n.id));
-  const availableCampaigns = campaigns.filter(c => c.clientId === null || assignedCampaigns.includes(c.id));
+  // numbers and campaigns available for assignment (include ones already assigned to this client)
+  const availableNumbers = numbers.filter(
+    n => (n.clientId === null || n.clientId === client?.id) && !assignedNumbers.includes(n.id)
+  );
+  const availableCampaigns = campaigns.filter(
+    c => (c.clientId === null || c.clientId === client?.id) && !assignedCampaigns.includes(c.id)
+  );
 
   const addNumber = () => {
     if (newNumber && !assignedNumbers.includes(parseInt(newNumber, 10))) {
@@ -107,7 +112,7 @@ export default function ClientFormPage({ client, numbers, campaigns, onSave, onC
           <div className="flex space-x-2 items-end">
             <select value={newNumber} onChange={e => setNewNumber(e.target.value)} className="w-full px-4 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg">
               <option value="">Select number</option>
-              {availableNumbers.filter(n => n.clientId === null).map(num => (
+              {availableNumbers.map(num => (
                 <option key={num.id} value={num.id}>{num.number}</option>
               ))}
             </select>
@@ -128,7 +133,7 @@ export default function ClientFormPage({ client, numbers, campaigns, onSave, onC
           <div className="flex space-x-2 items-end">
             <select value={newCampaign} onChange={e => setNewCampaign(e.target.value)} className="w-full px-4 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg">
               <option value="">Select campaign</option>
-              {availableCampaigns.filter(c => c.clientId === null).map(c => (
+              {availableCampaigns.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
