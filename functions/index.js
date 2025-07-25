@@ -34,12 +34,15 @@ async function ensureMasterTable(tableId, schema) {
 
 /**
  * Creates a new client account and provisions their resources.
- * This is an HTTP callable function, which means our React app can call it directly.
+ * Converted to an HTTP function so we can easily log the request body
+ * and return detailed error messages.
  */
-exports.createClient = functions.https.onCall(async (data, context) => {
+exports.createClient = functions.https.onRequest(async (req, res) => {
+  console.log('createClient triggered');
+  console.log('Request body:', req.body);
+  functions.logger.info('Received create client request with data:', req.body);
   try {
-    // Log the data we received from the frontend.
-    functions.logger.info("Received create client request with data:", data);
+    const data = req.body;
 
     // --- Authentication Check (Placeholder) ---
     // In a real app, we would check if the user calling this function is a Super Admin.
@@ -111,17 +114,14 @@ exports.createClient = functions.https.onCall(async (data, context) => {
     createdAt: new Date().toISOString(),
   });
 
-    return {
+    res.json({
       status: "success",
       message: `Client "${companyName}" created successfully.`,
       clientId: userRecord.uid,
-    };
-  } catch (err) {
-    functions.logger.error(err);
-    throw new functions.https.HttpsError(
-      "internal",
-      err.message || "Unknown error"
-    );
+    });
+  } catch (e) {
+    console.error('Error in createClient:', e);
+    res.status(500).send('Failed to create client: ' + e.message);
   }
 });
 
