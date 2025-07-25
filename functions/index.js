@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { BigQuery } = require("@google-cloud/bigquery");
+const cors = require('cors')({ origin: true });
 
 // Initialize both Firebase Admin and BigQuery clients
 admin.initializeApp();
@@ -37,12 +38,13 @@ async function ensureMasterTable(tableId, schema) {
  * Converted to an HTTP function so we can easily log the request body
  * and return detailed error messages.
  */
-exports.createClient = functions.https.onRequest(async (req, res) => {
-  console.log('createClient triggered');
-  console.log('Request body:', req.body);
-  functions.logger.info('Received create client request with data:', req.body);
-  try {
-    const data = req.body;
+exports.createClient = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    console.log('createClient triggered');
+    console.log('Request body:', req.body);
+    functions.logger.info('Received create client request with data:', req.body);
+    try {
+      const data = req.body;
 
     // --- Authentication Check (Placeholder) ---
     // In a real app, we would check if the user calling this function is a Super Admin.
@@ -128,6 +130,7 @@ exports.createClient = functions.https.onRequest(async (req, res) => {
     console.error('Error in createClient:', e);
     res.status(500).send('Failed to create client: ' + e.message);
   }
+  });
 });
 
 /**
