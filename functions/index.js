@@ -44,7 +44,14 @@ exports.createClient = functions.https.onRequest((req, res) => {
     console.log('Request body:', req.body);
     functions.logger.info('Received create client request with data:', req.body);
     try {
-      const data = req.body;
+      let data = req.body;
+      if (!data || Object.keys(data).length === 0) {
+        try {
+          data = JSON.parse(req.rawBody.toString());
+        } catch (e) {
+          data = {};
+        }
+      }
 
     // --- Authentication Check (Placeholder) ---
     // In a real app, we would check if the user calling this function is a Super Admin.
@@ -56,11 +63,15 @@ exports.createClient = functions.https.onRequest((req, res) => {
     //   );
     // }
 
-    const {
-      companyName,
-      contactFullName,
-      contactEmail,
-    } = data;
+    let { companyName, contactFullName, contactEmail } = data;
+    // Support alternate field names if provided
+    if (!companyName && data.company) companyName = data.company;
+    if (!contactFullName && (data.clientName || data.contact_name)) {
+      contactFullName = data.clientName || data.contact_name;
+    }
+    if (!contactEmail && (data.email || data.contact_email)) {
+      contactEmail = data.email || data.contact_email;
+    }
 
   // 1. Create a user for the client's primary contact
   const userRecord = await admin.auth().createUser({
@@ -131,6 +142,31 @@ exports.createClient = functions.https.onRequest((req, res) => {
     res.status(500).send('Failed to create client: ' + e.message);
   }
   });
+});
+
+/**
+ * Updates an existing client in BigQuery.
+ */
+exports.updateClient = functions.https.onCall(async (data) => {
+  const { clientId, companyName, contactFullName, contactEmail } = data;
+
+  if (!clientId) {
+    throw new functions.https.HttpsError('invalid-argument', 'clientId is required');
+  }
+
+  const query = `UPDATE \`master_data.clients\` SET companyName=@companyName, contactEmail=@contactEmail, contactFullName=@contactFullName WHERE clientId=@clientId`;
+
+  try {
+    await bigquery.query({
+      query,
+      params: { clientId: String(clientId), companyName, contactEmail, contactFullName },
+    });
+    await admin.auth().updateUser(String(clientId), { email: contactEmail, displayName: contactFullName });
+  } catch (err) {
+    throw new functions.https.HttpsError('internal', err.message);
+  }
+
+  return { status: 'success' };
 });
 
 /**
