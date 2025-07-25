@@ -173,7 +173,8 @@ const MasterDashboard = ({ user }) => {
                 setNotification({ type: 'success', text: 'Client created successfully.' });
             } catch (err) {
                 console.error('Failed to create client', err);
-                setNotification({ type: 'error', text: 'Failed to create client.' });
+                const message = err && err.message ? err.message : String(err);
+                setNotification({ type: 'error', text: `Failed to create client: ${message}` });
             }
         }
         setActiveView('clients');
