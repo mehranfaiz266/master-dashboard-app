@@ -8,12 +8,14 @@ import CampaignModal from './CampaignModal';
 import KpiCard from './KpiCard';
 import Notification from './Notification';
 import NavLink from './NavLink';
+import ClientViewModal from './ClientViewModal';
 import { auth, functions } from '../firebase';
 import { ChartBarIcon, UsersIcon, ClipboardIcon, HashtagIcon, PhoneIcon, PencilIcon } from './icons';
 
 export default function MasterDashboard({ user }) {
   const [activeView, setActiveView] = useState('clients');
   const [editingClient, setEditingClient] = useState(null);
+  const [viewingClient, setViewingClient] = useState(null);
   const [clients, setClients] = useState([]);
   const [callNumbers, setCallNumbers] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -93,6 +95,14 @@ export default function MasterDashboard({ user }) {
     setActiveView('clientForm');
   };
 
+  const handleOpenViewModal = (client) => {
+    setViewingClient(client);
+  };
+
+  const handleCloseViewModal = () => {
+    setViewingClient(null);
+  };
+
   const handleTestBigQuery = async () => {
     try {
       const testFn = httpsCallable(functions, 'testBigQueryConnection');
@@ -135,6 +145,27 @@ export default function MasterDashboard({ user }) {
         const message = err && err.message ? err.message : String(err);
         setNotification({ type: 'error', text: `Failed to create client: ${message}` });
       }
+    } else {
+      try {
+        const fn = httpsCallable(functions, 'updateClient');
+        await fn({
+          clientId: editingClient.clientId || editingClient.id,
+          companyName: data.companyName,
+          contactFullName: data.clientName,
+          contactEmail: data.contactEmail,
+        });
+
+        const getData = httpsCallable(functions, 'getMasterData');
+        const res = await getData();
+        setClients(res.data.clients || []);
+        setCallNumbers(res.data.callNumbers || []);
+        setCampaigns(res.data.campaigns || []);
+        setNotification({ type: 'success', text: 'Client updated successfully.' });
+      } catch (err) {
+        console.error('Failed to update client', err);
+        const message = err && err.message ? err.message : String(err);
+        setNotification({ type: 'error', text: `Failed to update client: ${message}` });
+      }
     }
     setActiveView('clients');
   };
@@ -146,7 +177,14 @@ export default function MasterDashboard({ user }) {
       case 'clientForm':
         return <ClientFormPage client={editingClient} numbers={callNumbers} campaigns={campaigns} onSave={handleSaveClient} onCancel={() => setActiveView('clients')} />;
       case 'clients':
-        return <ClientManagementTab clients={clients} onOpenCreateModal={handleOpenCreateForm} onOpenEditModal={handleOpenEditForm} />;
+        return (
+          <ClientManagementTab
+            clients={clients}
+            onOpenCreateModal={handleOpenCreateForm}
+            onOpenEditModal={handleOpenEditForm}
+            onOpenViewModal={handleOpenViewModal}
+          />
+        );
       case 'numbers':
         return <CallNumberManagementTab clients={clients} numbers={callNumbers} onAdd={addNumber} onEdit={updateNumber} onDelete={deleteNumber} />;
       case 'leads':
@@ -162,7 +200,14 @@ export default function MasterDashboard({ user }) {
           />
         );
       default:
-        return <ClientManagementTab clients={clients} onOpenCreateModal={handleOpenCreateForm} onOpenEditModal={handleOpenEditForm} />;
+        return (
+          <ClientManagementTab
+            clients={clients}
+            onOpenCreateModal={handleOpenCreateForm}
+            onOpenEditModal={handleOpenEditForm}
+            onOpenViewModal={handleOpenViewModal}
+          />
+        );
     }
   };
 
@@ -193,6 +238,7 @@ export default function MasterDashboard({ user }) {
 
       <main className="flex-1 p-8 overflow-y-auto">
         <Notification message={notification} onClose={() => setNotification(null)} />
+        <ClientViewModal client={viewingClient} onClose={handleCloseViewModal} />
         {renderView()}
       </main>
     </div>
@@ -219,7 +265,7 @@ function OverviewTab({ kpis, onTestBigQuery }) {
   );
 }
 
-function ClientManagementTab({ clients, onOpenCreateModal, onOpenEditModal }) {
+function ClientManagementTab({ clients, onOpenCreateModal, onOpenEditModal, onOpenViewModal }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -247,7 +293,7 @@ function ClientManagementTab({ clients, onOpenCreateModal, onOpenEditModal }) {
                 </td>
                 <td className="p-4 text-white">{client.leads}</td>
                 <td className="p-4 flex items-center space-x-4">
-                  <a href="#" className="text-indigo-400 hover:underline font-medium">View</a>
+                  <button onClick={() => onOpenViewModal(client)} className="text-indigo-400 hover:underline font-medium">View</button>
                   <button onClick={() => onOpenEditModal(client)} className="text-gray-400 hover:text-white flex items-center space-x-1">
                     <PencilIcon />
                     <span>Edit</span>
