@@ -4,6 +4,7 @@ import { httpsCallable } from 'firebase/functions';
 import ClientFormPage from './ClientFormPage';
 import LeadModal from './LeadModal';
 import CallNumberModal from './CallNumberModal';
+import CampaignModal from './CampaignModal';
 import KpiCard from './KpiCard';
 import Notification from './Notification';
 import NavLink from './NavLink';
@@ -40,8 +41,34 @@ export default function MasterDashboard({ user }) {
     fetchData();
   }, []);
 
-  const addNumber = (number, clientId) => {
-    setCallNumbers(prev => [...prev, { id: Date.now(), number, clientId }]);
+  const addNumber = async (number, clientId) => {
+    try {
+      const fn = httpsCallable(functions, 'createCallNumber');
+      const res = await fn({ number, clientId });
+      const id = res.data.id;
+      setCallNumbers(prev => [...prev, { id, number, clientId }]);
+      setNotification({ type: 'success', text: 'Number created successfully.' });
+    } catch (err) {
+      const message = err && err.message ? err.message : String(err);
+      setNotification({ type: 'error', text: `Failed to create number: ${message}` });
+    }
+  };
+
+  const addCampaign = async (campaign) => {
+    try {
+      const fn = httpsCallable(functions, 'createCampaign');
+      const res = await fn({
+        clientId: campaign.clientId,
+        name: campaign.name,
+        callNumber: campaign.callNumber,
+      });
+      const id = res.data.campaignId;
+      setCampaigns(prev => [...prev, { id, ...campaign }]);
+      setNotification({ type: 'success', text: 'Campaign created successfully.' });
+    } catch (err) {
+      const message = err && err.message ? err.message : String(err);
+      setNotification({ type: 'error', text: `Failed to create campaign: ${message}` });
+    }
   };
 
   const updateNumber = (updated) => {
@@ -125,7 +152,15 @@ export default function MasterDashboard({ user }) {
       case 'leads':
         return <LeadManagementTab clients={clients} campaigns={campaigns} />;
       case 'campaigns':
-        return <CampaignManagementTab campaigns={campaigns} />;
+        return (
+          <CampaignManagementTab
+            campaigns={campaigns}
+            clients={clients}
+            numbers={callNumbers}
+            onAdd={addCampaign}
+            onOpen={() => { setEditingCampaign(null); setCampaignModalOpen(true); }}
+          />
+        );
       default:
         return <ClientManagementTab clients={clients} onOpenCreateModal={handleOpenCreateForm} onOpenEditModal={handleOpenEditForm} />;
     }
@@ -227,10 +262,19 @@ function ClientManagementTab({ clients, onOpenCreateModal, onOpenEditModal }) {
   );
 }
 
-function CampaignManagementTab({ campaigns }) {
+function CampaignManagementTab({ campaigns, clients, numbers, onAdd, onOpen }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const handleSave = (campaign) => {
+    onAdd(campaign);
+    setIsModalOpen(false);
+  };
+
   return (
     <div>
-      <h2 className="text-3xl font-bold text-white mb-6">Campaign Management</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-white">Campaign Management</h2>
+        <button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors shadow-lg">Add Campaign</button>
+      </div>
       <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-900">
@@ -238,21 +282,27 @@ function CampaignManagementTab({ campaigns }) {
               <th className="p-4 text-xs font-semibold uppercase text-gray-400">Campaign</th>
               <th className="p-4 text-xs font-semibold uppercase text-gray-400">Client</th>
               <th className="p-4 text-xs font-semibold uppercase text-gray-400">Call Number</th>
-              <th className="p-4 text-xs font-semibold uppercase text-gray-400">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
             {campaigns.map(c => (
               <tr key={c.id} className="hover:bg-gray-700/50">
                 <td className="p-4 font-medium text-white">{c.name}</td>
-                <td className="p-4 text-white">{c.clientName || 'Unassigned'}</td>
+                <td className="p-4 text-white">{clients.find(cl => String(cl.clientId || cl.id) === String(c.clientId))?.companyName || 'Unassigned'}</td>
                 <td className="p-4 text-white">{c.callNumber}</td>
-                <td className="p-4 text-white">{c.status}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <CampaignModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        campaignData={null}
+        clients={clients}
+        numbers={numbers}
+        onSave={handleSave}
+      />
     </div>
   );
 }
