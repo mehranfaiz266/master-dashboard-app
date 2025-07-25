@@ -240,3 +240,20 @@ exports.getGlobalKpis = functions.https.onCall(async () => {
     systemHealth: "Normal",
   };
 });
+
+// Test BigQuery connection and optionally create a dataset
+exports.testBigQueryConnection = functions.https.onCall(async (data) => {
+  const datasetId = data?.datasetId || "test_dataset";
+  try {
+    let dataset = bigquery.dataset(datasetId);
+    const [exists] = await dataset.exists();
+    if (!exists) {
+      await bigquery.createDataset(datasetId, { location: "US" });
+      dataset = bigquery.dataset(datasetId);
+    }
+    await dataset.getMetadata();
+    return { status: "success", datasetId };
+  } catch (err) {
+    throw new functions.https.HttpsError("internal", err.message);
+  }
+});

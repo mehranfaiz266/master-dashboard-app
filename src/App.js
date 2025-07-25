@@ -156,6 +156,17 @@ const MasterDashboard = ({ user }) => {
         setActiveView('clientForm');
     };
 
+    const handleTestBigQuery = async () => {
+        try {
+            const testFn = httpsCallable(functions, 'testBigQueryConnection');
+            await testFn();
+            setNotification({ type: 'success', text: 'BigQuery connection successful.' });
+        } catch (err) {
+            const message = err && err.message ? err.message : String(err);
+            setNotification({ type: 'error', text: `BigQuery test failed: ${message}` });
+        }
+    };
+
     const handleSaveClient = async (data) => {
         if (!editingClient) {
             try {
@@ -183,7 +194,7 @@ const MasterDashboard = ({ user }) => {
     const renderView = () => {
         switch (activeView) {
             case 'overview':
-                return <OverviewTab kpis={globalKpis} />;
+                return <OverviewTab kpis={globalKpis} onTestBigQuery={handleTestBigQuery} />;
             case 'clientForm':
                 return <ClientFormPage client={editingClient} numbers={callNumbers} campaigns={campaigns} onSave={handleSaveClient} onCancel={() => setActiveView('clients')} />;
             case 'clients':
@@ -234,7 +245,7 @@ const MasterDashboard = ({ user }) => {
 };
 
 // --- View Components ---
-const OverviewTab = ({ kpis }) => (
+const OverviewTab = ({ kpis, onTestBigQuery }) => (
     <div>
         <h2 className="text-3xl font-bold text-white mb-6">Global Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -246,6 +257,9 @@ const OverviewTab = ({ kpis }) => (
         <div className="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
             <h3 className="text-lg font-medium text-white">More charts and global analytics would go here.</h3>
         </div>
+        <button onClick={onTestBigQuery} className="mt-6 bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700">
+            Test BigQuery Setup
+        </button>
     </div>
 );
 
