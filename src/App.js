@@ -53,6 +53,17 @@ const KpiCard = ({ title, value, statusColor }) => (
     </div>
 );
 
+const Notification = ({ message, onClose }) => {
+    if (!message) return null;
+    const bg = message.type === 'error' ? 'bg-red-600' : 'bg-green-600';
+    return (
+        <div className={`${bg} text-white px-4 py-2 rounded mb-4 flex justify-between items-center`}>
+            <span>{message.text}</span>
+            <button onClick={onClose} className="font-bold">×</button>
+        </div>
+    );
+};
+
 const NavLink = ({ icon, text, isActive, onClick }) => (
     <button
         onClick={onClick}
@@ -97,6 +108,7 @@ const MasterDashboard = ({ user }) => {
     const [campaigns, setCampaigns] = useState([]);
     const [globalKpis, setGlobalKpis] = useState(null);
     const [dataLoading, setDataLoading] = useState(true);
+    const [notification, setNotification] = useState(null);
 
     useEffect(() => {
         async function fetchData() {
@@ -158,8 +170,10 @@ const MasterDashboard = ({ user }) => {
                 setClients(res.data.clients || []);
                 setCallNumbers(res.data.callNumbers || []);
                 setCampaigns(res.data.campaigns || []);
+                setNotification({ type: 'success', text: 'Client created successfully.' });
             } catch (err) {
                 console.error('Failed to create client', err);
+                setNotification({ type: 'error', text: 'Failed to create client.' });
             }
         }
         setActiveView('clients');
@@ -210,6 +224,7 @@ const MasterDashboard = ({ user }) => {
             </aside>
 
             <main className="flex-1 p-8 overflow-y-auto">
+                <Notification message={notification} onClose={() => setNotification(null)} />
                 {renderView()}
             </main>
 
