@@ -22,7 +22,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Firebase debug logs
+# Firebase debug log
 firebase-debug.log
 
 # Service account credentials
