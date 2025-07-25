@@ -8,12 +8,3 @@ node_modules/
 # Credential files
 serviceAccountKey.json
 credentials.json
-bigquery-key.json
-
-# Local overrides
-*.local
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
