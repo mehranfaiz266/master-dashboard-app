@@ -80,12 +80,23 @@ export default function MasterDashboard({ user }) {
   const handleSaveClient = async (data) => {
     if (!editingClient) {
       try {
-        const createFn = httpsCallable(functions, 'createClient');
-        await createFn({
-          companyName: data.companyName,
-          contactFullName: data.clientName,
-          contactEmail: data.contactEmail,
+        // createClient is implemented as an HTTP function, not a callable one
+        const projectId = process.env.REACT_APP_FIREBASE_PROJECT_ID;
+        const url = `https://us-central1-${projectId}.cloudfunctions.net/createClient`;
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyName: data.companyName,
+            contactFullName: data.clientName,
+            contactEmail: data.contactEmail,
+          }),
         });
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(text || `Request failed with status ${resp.status}`);
+        }
+
         const getData = httpsCallable(functions, 'getMasterData');
         const res = await getData();
         setClients(res.data.clients || []);
