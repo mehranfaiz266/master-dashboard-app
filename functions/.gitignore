@@ -1,2 +1,19 @@
+# Node dependencies
 node_modules/
+
+# Environment files
+.env
+.env.*
+
+# Credential files
+serviceAccountKey.json
+credentials.json
+bigquery-key.json
+
+# Local overrides
 *.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
