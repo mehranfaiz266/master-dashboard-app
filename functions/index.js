@@ -16,6 +16,22 @@ async function ensureClientTable(datasetId, tableId, schema) {
   return table;
 }
 
+async function ensureMasterTable(tableId, schema) {
+  const datasetId = "master_data";
+  let dataset = bigquery.dataset(datasetId);
+  const [datasetExists] = await dataset.exists();
+  if (!datasetExists) {
+    await bigquery.createDataset(datasetId, { location: "US" });
+    dataset = bigquery.dataset(datasetId);
+  }
+  const table = dataset.table(tableId);
+  const [exists] = await table.exists();
+  if (!exists) {
+    await table.create({ schema });
+  }
+  return table;
+}
+
 /**
  * Creates a new client account and provisions their resources.
  * This is an HTTP callable function, which means our React app can call it directly.
@@ -79,8 +95,13 @@ exports.createClient = functions.https.onCall(async (data, context) => {
   ]);
 
   // 3. Record the new client in the shared master_data dataset
-  const masterDataset = bigquery.dataset("master_data");
-  const clientsTable = masterDataset.table("clients");
+  const clientsTable = await ensureMasterTable("clients", [
+    { name: "clientId", type: "STRING" },
+    { name: "companyName", type: "STRING" },
+    { name: "contactEmail", type: "STRING" },
+    { name: "contactFullName", type: "STRING" },
+    { name: "createdAt", type: "TIMESTAMP" },
+  ]);
   await clientsTable.insert({
     clientId: userRecord.uid,
     companyName,
