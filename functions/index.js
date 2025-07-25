@@ -37,24 +37,25 @@ async function ensureMasterTable(tableId, schema) {
  * This is an HTTP callable function, which means our React app can call it directly.
  */
 exports.createClient = functions.https.onCall(async (data, context) => {
-  // Log the data we received from the frontend.
-  functions.logger.info("Received create client request with data:", data);
+  try {
+    // Log the data we received from the frontend.
+    functions.logger.info("Received create client request with data:", data);
 
-  // --- Authentication Check (Placeholder) ---
-  // In a real app, we would check if the user calling this function is a Super Admin.
-  // For now, we will skip this to keep it simple.
-  // if (!context.auth || !context.auth.token.superAdmin) {
-  //   throw new functions.https.HttpsError(
-  //     "permission-denied",
-  //     "You must be a Super Admin to create a new client."
-  //   );
-  // }
+    // --- Authentication Check (Placeholder) ---
+    // In a real app, we would check if the user calling this function is a Super Admin.
+    // For now, we will skip this to keep it simple.
+    // if (!context.auth || !context.auth.token.superAdmin) {
+    //   throw new functions.https.HttpsError(
+    //     "permission-denied",
+    //     "You must be a Super Admin to create a new client."
+    //   );
+    // }
 
-  const {
-    companyName,
-    contactFullName,
-    contactEmail,
-  } = data;
+    const {
+      companyName,
+      contactFullName,
+      contactEmail,
+    } = data;
 
   // 1. Create a user for the client's primary contact
   const userRecord = await admin.auth().createUser({
@@ -110,11 +111,18 @@ exports.createClient = functions.https.onCall(async (data, context) => {
     createdAt: new Date().toISOString(),
   });
 
-  return {
-    status: "success",
-    message: `Client "${companyName}" created successfully.`,
-    clientId: userRecord.uid,
-  };
+    return {
+      status: "success",
+      message: `Client "${companyName}" created successfully.`,
+      clientId: userRecord.uid,
+    };
+  } catch (err) {
+    functions.logger.error(err);
+    throw new functions.https.HttpsError(
+      "internal",
+      err.message || "Unknown error"
+    );
+  }
 });
 
 /**
