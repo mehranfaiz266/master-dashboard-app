@@ -19,8 +19,9 @@ This project is a small React + Firebase prototype for managing clients and lead
    ```bash
    npm start
    ```
-3. Run tests (none included yet). If you don't have any test files, use
-   the `--passWithNoTests` flag so the command exits successfully:
+3. Run tests (none included yet). Make sure dependencies are installed with
+   `npm install` first. If you don't have any test files, use the
+   `--passWithNoTests` flag so the command exits successfully:
    ```bash
    npm test -- --watchAll=false --passWithNoTests
    ```
