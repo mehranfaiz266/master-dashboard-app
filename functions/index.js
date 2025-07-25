@@ -6,6 +6,16 @@ const { BigQuery } = require("@google-cloud/bigquery");
 admin.initializeApp();
 const bigquery = new BigQuery();
 
+// Simple connectivity test callable from the frontend
+exports.testBigQueryConnection = functions.https.onCall(async () => {
+  try {
+    const [datasets] = await bigquery.getDatasets();
+    return { success: true, datasetCount: datasets.length };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 async function ensureClientTable(datasetId, tableId, schema) {
   const dataset = bigquery.dataset(datasetId);
   const table = dataset.table(tableId);

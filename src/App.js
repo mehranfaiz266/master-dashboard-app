@@ -234,20 +234,42 @@ const MasterDashboard = ({ user }) => {
 };
 
 // --- View Components ---
-const OverviewTab = ({ kpis }) => (
-    <div>
-        <h2 className="text-3xl font-bold text-white mb-6">Global Overview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <KpiCard title="Total Calls (30d)" value={kpis?.totalCalls?.toLocaleString() || '0'} />
-            <KpiCard title="Total Leads (30d)" value={kpis?.totalLeads?.toLocaleString() || '0'} />
-            <KpiCard title="Active Clients" value={kpis?.activeClients || 0} />
-            <KpiCard title="System Health" value={kpis?.systemHealth || 'Unknown'} statusColor="text-green-400" />
+const OverviewTab = ({ kpis }) => {
+    const [testResult, setTestResult] = useState(null);
+
+    const handleTest = async () => {
+        try {
+            const fn = httpsCallable(functions, 'testBigQueryConnection');
+            const res = await fn();
+            if (res.data.success) {
+                setTestResult(`Success! Found ${res.data.datasetCount} datasets.`);
+            } else {
+                setTestResult(`Failed: ${res.data.error}`);
+            }
+        } catch (err) {
+            setTestResult(`Error: ${err.message}`);
+        }
+    };
+
+    return (
+        <div>
+            <h2 className="text-3xl font-bold text-white mb-6">Global Overview</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <KpiCard title="Total Calls (30d)" value={kpis?.totalCalls?.toLocaleString() || '0'} />
+                <KpiCard title="Total Leads (30d)" value={kpis?.totalLeads?.toLocaleString() || '0'} />
+                <KpiCard title="Active Clients" value={kpis?.activeClients || 0} />
+                <KpiCard title="System Health" value={kpis?.systemHealth || 'Unknown'} statusColor="text-green-400" />
+            </div>
+            <div className="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+                <h3 className="text-lg font-medium text-white">More charts and global analytics would go here.</h3>
+            </div>
+            <button onClick={handleTest} className="mt-6 bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700">
+                Test BigQuery Connection
+            </button>
+            {testResult && <p className="mt-2 text-sm text-indigo-400">{testResult}</p>}
         </div>
-        <div className="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
-            <h3 className="text-lg font-medium text-white">More charts and global analytics would go here.</h3>
-        </div>
-    </div>
-);
+    );
+};
 
 const ClientManagementTab = ({ clients, onOpenCreateModal, onOpenEditModal }) => {
 
