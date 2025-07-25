@@ -6,9 +6,9 @@ This project is a small React + Firebase prototype for managing clients and lead
 - Firebase email/password login
 - Dashboard with three main sections:
   - **Client Management** – view, create and edit clients. Creating a client calls a Firebase Cloud Function that provisions BigQuery resources.
-  - **Campaign Management** – list campaigns and associated call numbers.
+  - **Campaign Management** – create campaigns and associate call numbers.
   - **Lead Management** – search by phone number and filter by client or campaign.
-  - Firebase Cloud Functions `createClient`, `createCampaign` and `getGlobalKpis` manage and return live data from BigQuery.
+  - Firebase Cloud Functions `createClient`, `createCampaign`, `createCallNumber` and `getGlobalKpis` manage and return live data from BigQuery.
 
 ## Development
 1. Install dependencies:

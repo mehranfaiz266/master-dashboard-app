@@ -83,6 +83,11 @@ exports.createClient = functions.https.onRequest(async (req, res) => {
     { name: "callNumber", type: "STRING" },
     { name: "createdAt", type: "TIMESTAMP" },
   ]);
+  await ensureClientTable(datasetId, "numbers", [
+    { name: "id", type: "INT64" },
+    { name: "number", type: "STRING" },
+    { name: "createdAt", type: "TIMESTAMP" },
+  ]);
   await ensureClientTable(datasetId, "members", [
     { name: "memberId", type: "STRING" },
     { name: "firstName", type: "STRING" },
@@ -128,24 +133,37 @@ exports.createClient = functions.https.onRequest(async (req, res) => {
 /**
  * Creates a new campaign for a client and records it in BigQuery.
  */
-exports.createCampaign = functions.https.onCall(async (data, context) => {
+exports.createCampaign = functions.https.onCall(async (data) => {
   functions.logger.info("Received create campaign request with data:", data);
 
   const { clientId, name, callNumber } = data;
 
-  // Campaign records live inside the client's dataset under a `campaigns` table
-  const datasetId = `client_${clientId}`;
-  const campaignsTable = await ensureClientTable(datasetId, "campaigns", [
+  const clientDataset = `client_${clientId}`;
+  const clientCampaigns = await ensureClientTable(clientDataset, "campaigns", [
     { name: "campaignId", type: "STRING" },
     { name: "name", type: "STRING" },
     { name: "callNumber", type: "STRING" },
     { name: "createdAt", type: "TIMESTAMP" },
   ]);
-  const campaignId = `campaign_${Date.now()}`;
+
+  const masterCampaigns = await ensureMasterTable("campaigns", [
+    { name: "id", type: "INT64" },
+    { name: "name", type: "STRING" },
+    { name: "clientId", type: "INT64" },
+    { name: "callNumber", type: "STRING" },
+  ]);
+
+  const [existing] = await masterCampaigns.getRows();
+  if (existing.some(r => r.callNumber === callNumber && String(r.clientId) !== String(clientId))) {
+    throw new functions.https.HttpsError("already-exists", "Call number already assigned to another campaign.");
+  }
+
+  const id = Date.now();
 
   try {
-    await campaignsTable.insert({
-      campaignId,
+    await masterCampaigns.insert({ id, name, clientId: parseInt(clientId, 10), callNumber });
+    await clientCampaigns.insert({
+      campaignId: `campaign_${id}`,
       name,
       callNumber,
       createdAt: new Date().toISOString(),
@@ -157,8 +175,58 @@ exports.createCampaign = functions.https.onCall(async (data, context) => {
   return {
     status: "success",
     message: `Campaign "${name}" for client ${clientId} created successfully.`,
-    campaignId,
+    campaignId: id,
   };
+});
+
+/**
+ * Creates a new call number and assigns it to a client.
+ */
+exports.createCallNumber = functions.https.onCall(async (data) => {
+  const { clientId, number } = data;
+
+  if (!clientId || !number) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "clientId and number are required"
+    );
+  }
+
+  const numbersTable = await ensureMasterTable("call_numbers", [
+    { name: "id", type: "INT64" },
+    { name: "number", type: "STRING" },
+    { name: "clientId", type: "INT64" },
+  ]);
+
+  const [existing] = await numbersTable.getRows();
+  if (existing.some((r) => r.number === number)) {
+    throw new functions.https.HttpsError(
+      "already-exists",
+      "Number already exists"
+    );
+  }
+
+  const id = Date.now();
+
+  const clientDataset = `client_${clientId}`;
+  const clientNumbers = await ensureClientTable(clientDataset, "numbers", [
+    { name: "id", type: "INT64" },
+    { name: "number", type: "STRING" },
+    { name: "createdAt", type: "TIMESTAMP" },
+  ]);
+
+  try {
+    await numbersTable.insert({ id, number, clientId: parseInt(clientId, 10) });
+    await clientNumbers.insert({
+      id,
+      number,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    throw new functions.https.HttpsError("internal", err.message);
+  }
+
+  return { status: "success", id };
 });
 
 /**
