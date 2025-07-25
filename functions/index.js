@@ -143,12 +143,16 @@ exports.createCampaign = functions.https.onCall(async (data, context) => {
   ]);
   const campaignId = `campaign_${Date.now()}`;
 
-  await campaignsTable.insert({
-    campaignId,
-    name,
-    callNumber,
-    createdAt: new Date().toISOString(),
-  });
+  try {
+    await campaignsTable.insert({
+      campaignId,
+      name,
+      callNumber,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    throw new functions.https.HttpsError("internal", err.message);
+  }
 
   return {
     status: "success",
