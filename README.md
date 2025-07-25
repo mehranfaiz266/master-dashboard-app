@@ -29,6 +29,13 @@ This project is a small React + Firebase prototype for managing clients and lead
 This repo is intended as a starting point and uses Tailwind CSS for styling. The dashboard now loads all data directly from BigQuery via Cloud Functions and no longer relies on mock objects.
 The Cloud Functions expect credentials with access to BigQuery. Deploy using a service account that has permission to create datasets and tables.
 
+### Cloud Functions runtime
+
+Cloud Functions need a supported Node.js version to deploy successfully.
+The `functions/package.json` file specifies the version under the `engines` key.
+Make sure it is set to `"18"` (or another supported version) before running
+`firebase deploy`.
+
 ### Using BigQuery for live data
 
 1. Create a Google Cloud service account with permissions to manage BigQuery datasets and tables.
