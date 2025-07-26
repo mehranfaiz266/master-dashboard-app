@@ -1,73 +1,49 @@
-# Master Dashboard App
+# Dashboard Example
 
-This project is a small React + Firebase prototype for managing clients and leads.
+This is a simple React + Firebase project showing a basic dashboard. After logging in you can manage clients along with their campaigns and phone numbers. Data is stored in Firestore and a sample Cloud Function is included.
 
-## Features
-- Firebase email/password login
-- Dashboard with three main sections:
-  - **Client Management** – view, create and edit clients. Creating a client calls a Firebase Cloud Function that provisions BigQuery resources.
-  - **Campaign Management** – create campaigns and associate call numbers.
-  - **Lead Management** – search by phone number and filter by client or campaign.
-  - Firebase Cloud Functions `createClient`, `createCampaign`, `createCallNumber` and `getGlobalKpis` manage and return live data from BigQuery.
+## Prerequisites
 
-## Development
+- Node.js 18+
+- Firebase CLI (`npm install -g firebase-tools`)
+- A Firebase project
+
+## Setup
+
 1. Install dependencies:
    ```bash
    npm install
+   npm --prefix functions install
    ```
-2. Start the development server:
-   ```bash
-   npm start
+2. Create a `.env.local` file in the project root with your Firebase config:
    ```
-3. Run tests (none included yet). Make sure dependencies are installed with
-   `npm install` first. If you don't have any test files, use the
-   `--passWithNoTests` flag so the command exits successfully:
-   ```bash
-   npm test -- --watchAll=false --passWithNoTests
+   REACT_APP_FIREBASE_API_KEY=your_key
+   REACT_APP_FIREBASE_AUTH_DOMAIN=your_auth_domain
+   REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+   REACT_APP_FIREBASE_APP_ID=your_app_id
    ```
 
-This repo is intended as a starting point and uses Tailwind CSS for styling. The dashboard now loads all data directly from BigQuery via Cloud Functions and no longer relies on mock objects.
-The Cloud Functions expect credentials with access to BigQuery. Deploy using a service account that has permission to create datasets and tables.
+## Development
 
-### Cloud Functions runtime
-
-Cloud Functions need a supported Node.js version to deploy successfully.
-The `functions/package.json` file specifies the version under the `engines` key.
-Make sure it is set to `"18"` (or another supported version) before running
-`firebase deploy`.
-
-### Using BigQuery for live data
-
-1. Create a Google Cloud service account with permissions to manage BigQuery datasets and tables.
-2. Download its JSON key file.
-3. When deploying Cloud Functions, prepend the deploy command with the environment variable so the Firebase CLI can authenticate:
-
-   ```bash
-   GOOGLE_APPLICATION_CREDENTIALS=./functions/bigquery-key.json firebase deploy --only functions
-   ```
-
-   The variable defined in `.env.local` is only used by the React app and will **not** be read by the Firebase CLI.
-4. The `getMasterData` Cloud Function will automatically create the `master_data` dataset and the `clients`, `call_numbers`, `campaigns` and `leads` tables if they do not exist.
-5. When the React app loads it calls this function along with `getGlobalKpis` to pull the latest data from BigQuery.
-
-### Testing your BigQuery credentials
-
-If you want to verify that your service account works before deploying, run the helper script:
-
+Start the React app:
 ```bash
-GOOGLE_APPLICATION_CREDENTIALS=./functions/bigquery-key.json node functions/testBigQueryConnection.js
-```
-
-It will attempt to list your BigQuery datasets and print a success message if the credentials are valid.
-
-## Updating your local copy
-
-If you already cloned the project in VS Code, fetch the latest code and start the dev server:
-
-```bash
-git pull
-npm install
 npm start
 ```
 
-This pulls the newest version and installs any dependencies.
+You can emulate Cloud Functions and Firestore locally:
+```bash
+firebase emulators:start --only functions,firestore
+```
+
+Run tests (none exist yet):
+```bash
+npm test -- --watchAll=false --passWithNoTests
+```
+
+## Deployment
+
+Build and deploy using the Firebase CLI:
+```bash
+npm run build
+firebase deploy
+```
