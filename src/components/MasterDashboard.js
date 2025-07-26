@@ -218,7 +218,6 @@ export default function MasterDashboard({ user }) {
             clients={clients}
             numbers={callNumbers}
             onAdd={addCampaign}
-            onOpen={() => { setEditingCampaign(null); setCampaignModalOpen(true); }}
           />
         );
       default:
