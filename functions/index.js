@@ -38,19 +38,44 @@ async function ensureMasterTable(tableId, schema) {
  * Converted to an HTTP function so we can easily log the request body
  * and return detailed error messages.
  */
-exports.createClient = functions.https.onRequest((req, res) => {
+exports.createClient = functions.region('us-central1').https.onRequest((req, res) => {
   cors(req, res, async () => {
     console.log('createClient triggered');
     console.log('Request body:', req.body);
     functions.logger.info('Received create client request with data:', req.body);
+    if (req.method !== 'POST') {
+      res.status(405).send('Method Not Allowed');
+      return;
+    }
     try {
       let data = req.body;
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch {
+          data = {};
+        }
+      }
       if (!data || Object.keys(data).length === 0) {
         try {
           data = JSON.parse(req.rawBody.toString());
-        } catch (e) {
+        } catch {
           data = {};
         }
+      }
+
+      let { companyName, contactFullName, contactEmail } = data;
+      if (!companyName && data.company) companyName = data.company;
+      if (!contactFullName && (data.clientName || data.contact_name)) {
+        contactFullName = data.clientName || data.contact_name;
+      }
+      if (!contactEmail && (data.email || data.contact_email)) {
+        contactEmail = data.email || data.contact_email;
+      }
+
+      if (!companyName || !contactFullName || !contactEmail) {
+        res.status(400).send('Missing required fields');
+        return;
       }
 
     // --- Authentication Check (Placeholder) ---
@@ -62,16 +87,6 @@ exports.createClient = functions.https.onRequest((req, res) => {
     //     "You must be a Super Admin to create a new client."
     //   );
     // }
-
-    let { companyName, contactFullName, contactEmail } = data;
-    // Support alternate field names if provided
-    if (!companyName && data.company) companyName = data.company;
-    if (!contactFullName && (data.clientName || data.contact_name)) {
-      contactFullName = data.clientName || data.contact_name;
-    }
-    if (!contactEmail && (data.email || data.contact_email)) {
-      contactEmail = data.email || data.contact_email;
-    }
 
   // 1. Create a user for the client's primary contact
   const userRecord = await admin.auth().createUser({
@@ -147,7 +162,7 @@ exports.createClient = functions.https.onRequest((req, res) => {
 /**
  * Updates an existing client in BigQuery.
  */
-exports.updateClient = functions.https.onCall(async (data) => {
+exports.updateClient = functions.region('us-central1').https.onCall(async (data) => {
   const { clientId, companyName, contactFullName, contactEmail } = data;
 
   if (!clientId) {
@@ -172,7 +187,7 @@ exports.updateClient = functions.https.onCall(async (data) => {
 /**
  * Creates a new campaign for a client and records it in BigQuery.
  */
-exports.createCampaign = functions.https.onCall(async (data) => {
+exports.createCampaign = functions.region('us-central1').https.onCall(async (data) => {
   functions.logger.info("Received create campaign request with data:", data);
 
   const { clientId, name, callNumber } = data;
@@ -221,7 +236,7 @@ exports.createCampaign = functions.https.onCall(async (data) => {
 /**
  * Creates a new call number and assigns it to a client.
  */
-exports.createCallNumber = functions.https.onCall(async (data) => {
+exports.createCallNumber = functions.region('us-central1').https.onCall(async (data) => {
   const { clientId, number } = data;
 
   if (!clientId || !number) {
@@ -273,7 +288,7 @@ exports.createCallNumber = functions.https.onCall(async (data) => {
  * they will be created on the fly. The function returns all clients, call
  * numbers and campaigns.
  */
-exports.getMasterData = functions.https.onCall(async () => {
+exports.getMasterData = functions.region('us-central1').https.onCall(async () => {
   // Ensure the shared dataset exists
   const datasetId = "master_data";
   let dataset = bigquery.dataset(datasetId);
@@ -332,7 +347,7 @@ exports.getMasterData = functions.https.onCall(async () => {
   return { clients, callNumbers, campaigns, leads };
 });
 
-exports.getGlobalKpis = functions.https.onCall(async () => {
+exports.getGlobalKpis = functions.region('us-central1').https.onCall(async () => {
   const masterDataset = bigquery.dataset("master_data");
   const clientsTable = masterDataset.table("clients");
   const leadsTable = masterDataset.table("leads");
@@ -349,7 +364,7 @@ exports.getGlobalKpis = functions.https.onCall(async () => {
 });
 
 // Test BigQuery connection and optionally create a dataset
-exports.testBigQueryConnection = functions.https.onCall(async (data) => {
+exports.testBigQueryConnection = functions.region('us-central1').https.onCall(async (data) => {
   const datasetId = data?.datasetId || "test_dataset";
   try {
     let dataset = bigquery.dataset(datasetId);

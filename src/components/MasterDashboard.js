@@ -27,13 +27,19 @@ export default function MasterDashboard({ user }) {
     async function fetchData() {
       try {
         const getData = httpsCallable(functions, 'getMasterData');
-        const res = await getData();
-        setClients(res.data.clients || []);
+        const getKpis = httpsCallable(functions, 'getGlobalKpis');
+        const [res, kpiRes] = await Promise.all([getData(), getKpis()]);
+        const clients = (res.data.clients || []).map(c => ({
+          id: c.clientId || c.id,
+          companyName: c.companyName,
+          contactFullName: c.contactFullName,
+          contactEmail: c.contactEmail,
+          status: c.status || 'Active',
+          leads: c.leads || 0,
+        }));
+        setClients(clients);
         setCallNumbers(res.data.callNumbers || []);
         setCampaigns(res.data.campaigns || []);
-
-        const getKpis = httpsCallable(functions, 'getGlobalKpis');
-        const kpiRes = await getKpis();
         setGlobalKpis(kpiRes.data);
       } catch (err) {
         console.error('Failed to load data from BigQuery', err);
@@ -136,7 +142,15 @@ export default function MasterDashboard({ user }) {
 
         const getData = httpsCallable(functions, 'getMasterData');
         const res = await getData();
-        setClients(res.data.clients || []);
+        const newClients = (res.data.clients || []).map(c => ({
+          id: c.clientId || c.id,
+          companyName: c.companyName,
+          contactFullName: c.contactFullName,
+          contactEmail: c.contactEmail,
+          status: c.status || 'Active',
+          leads: c.leads || 0,
+        }));
+        setClients(newClients);
         setCallNumbers(res.data.callNumbers || []);
         setCampaigns(res.data.campaigns || []);
         setNotification({ type: 'success', text: 'Client created successfully.' });
@@ -157,7 +171,15 @@ export default function MasterDashboard({ user }) {
 
         const getData = httpsCallable(functions, 'getMasterData');
         const res = await getData();
-        setClients(res.data.clients || []);
+        const updatedClients = (res.data.clients || []).map(c => ({
+          id: c.clientId || c.id,
+          companyName: c.companyName,
+          contactFullName: c.contactFullName,
+          contactEmail: c.contactEmail,
+          status: c.status || 'Active',
+          leads: c.leads || 0,
+        }));
+        setClients(updatedClients);
         setCallNumbers(res.data.callNumbers || []);
         setCampaigns(res.data.campaigns || []);
         setNotification({ type: 'success', text: 'Client updated successfully.' });
@@ -286,12 +308,12 @@ function ClientManagementTab({ clients, onOpenCreateModal, onOpenEditModal, onOp
           </thead>
           <tbody className="divide-y divide-gray-700">
             {clients.map(client => (
-              <tr key={client.id} className="hover:bg-gray-700/50">
+              <tr key={client.id || client.clientId} className="hover:bg-gray-700/50">
                 <td className="p-4 font-medium text-white">{client.companyName}</td>
                 <td className="p-4">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${client.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{client.status}</span>
+                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${client.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{client.status || 'Active'}</span>
                 </td>
-                <td className="p-4 text-white">{client.leads}</td>
+                <td className="p-4 text-white">{client.leads ?? 0}</td>
                 <td className="p-4 flex items-center space-x-4">
                   <button onClick={() => onOpenViewModal(client)} className="text-indigo-400 hover:underline font-medium">View</button>
                   <button onClick={() => onOpenEditModal(client)} className="text-gray-400 hover:text-white flex items-center space-x-1">
