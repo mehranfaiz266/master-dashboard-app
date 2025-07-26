@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from './firebase';
+import { getClients } from './api';
 
 export default function ClientsList() {
   const [clients, setClients] = useState([]);
 
   useEffect(() => {
     const load = async () => {
-      const snap = await getDocs(collection(db, 'clients'));
-      setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = await getClients();
+      setClients(list);
     };
     load();
   }, []);

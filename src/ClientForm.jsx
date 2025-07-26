@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
-  collection,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  addDoc,
-  deleteDoc,
-  getDocs
-} from 'firebase/firestore';
-import { db } from './firebase';
+  getClient,
+  createClient,
+  updateClient,
+  addCampaign as apiAddCampaign,
+  deleteCampaign as apiDeleteCampaign,
+  addNumber as apiAddNumber,
+  deleteNumber as apiDeleteNumber,
+} from './api';
 
 export default function ClientForm() {
   const { id } = useParams();
@@ -26,18 +24,12 @@ export default function ClientForm() {
   useEffect(() => {
     if (editing) {
       const load = async () => {
-        const docRef = doc(db, 'clients', id);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          setCompanyName(data.companyName || '');
-          setMembers(data.members || []);
-          setContactId(data.contactId || '');
-        }
-        const campSnap = await getDocs(collection(docRef, 'campaigns'));
-        setCampaigns(campSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        const numSnap = await getDocs(collection(docRef, 'phoneNumbers'));
-        setNumbers(numSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const data = await getClient(id);
+        setCompanyName(data.companyName || '');
+        setMembers(data.members || []);
+        setContactId(data.contactId || '');
+        setCampaigns(data.campaigns || []);
+        setNumbers(data.numbers || []);
       };
       load();
     } else {
@@ -49,10 +41,10 @@ export default function ClientForm() {
     e.preventDefault();
     const data = { companyName, members, contactId };
     if (editing) {
-      await updateDoc(doc(db, 'clients', id), data);
+      await updateClient(id, data);
     } else {
-      const newDoc = await addDoc(collection(db, 'clients'), data);
-      navigate(`/clients/${newDoc.id}`);
+      const res = await createClient(data);
+      navigate(`/clients/${res.id}`);
       return;
     }
     navigate('/clients');
@@ -76,26 +68,22 @@ export default function ClientForm() {
   };
 
   const addCampaign = async name => {
-    const col = collection(db, 'clients', id, 'campaigns');
-    await addDoc(col, { name });
-    const snap = await getDocs(col);
-    setCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const c = await apiAddCampaign(id, name);
+    setCampaigns([...campaigns, c]);
   };
 
   const removeCampaign = async cid => {
-    await deleteDoc(doc(db, 'clients', id, 'campaigns', cid));
+    await apiDeleteCampaign(id, cid);
     setCampaigns(campaigns.filter(c => c.id !== cid));
   };
 
   const addNumber = async number => {
-    const col = collection(db, 'clients', id, 'phoneNumbers');
-    await addDoc(col, { number });
-    const snap = await getDocs(col);
-    setNumbers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const n = await apiAddNumber(id, number);
+    setNumbers([...numbers, n]);
   };
 
   const removeNumber = async nid => {
-    await deleteDoc(doc(db, 'clients', id, 'phoneNumbers', nid));
+    await apiDeleteNumber(id, nid);
     setNumbers(numbers.filter(n => n.id !== nid));
   };
 
